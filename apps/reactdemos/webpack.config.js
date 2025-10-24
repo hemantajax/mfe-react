@@ -26,6 +26,13 @@ module.exports = {
       styles: ['./src/styles.scss'],
       outputHashing: process.env['NODE_ENV'] === 'production' ? 'all' : 'none',
       optimization: process.env['NODE_ENV'] === 'production',
+      stylePreprocessorOptions: {
+        includePaths: [],
+        sassOptions: {
+          quietDeps: true,
+          silenceDeprecations: ['import'],
+        },
+      },
     }),
     new NxReactWebpackPlugin({
       // Uncomment this line if you don't want to use SVGR

@@ -1,1 +1,2 @@
-/* You can add global styles to this file, and also import other style files */
+// Temporary workaround: Access styles via node_modules path directly (bypasses exports restriction)
+@use '../../../node_modules/@hemantajax/uikit/styles/main' as *;
