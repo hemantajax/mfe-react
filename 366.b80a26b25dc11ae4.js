@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkreactdemos=self.webpackChunkreactdemos||[]).push([[366],{366:(e,r,t)=>{t.r(r);var s=t(884),c=t(338),o=t(679),d=t(281),n=t(848);c.createRoot(document.getElementById("root")).render((0,n.jsx)(s.StrictMode,{children:(0,n.jsx)(o.BrowserRouter,{children:(0,n.jsx)(d.A,{})})}))}}]);
