@@ -1,4 +1,10 @@
-# Remote MFE Setup Guide (Products Example)
+# Remote MFE Setup Guide (React Example)
+
+> **⚠️ IMPORTANT - Manual Setup Required**: The NX generator command `nx g @nx/react:setup-mf` does NOT work reliably with current NX versions. This guide documents the **manual configuration approach** that actually works. Follow the manual steps in the [Initial Setup](#initial-setup) section.
+
+## What This Guide Covers
+
+This guide documents the **working manual approach** for setting up a React Remote MFE with Module Federation when the NX automated generators fail. The setup was successfully implemented for the `reactdemos` application.
 
 ## Table of Contents
 
@@ -8,7 +14,6 @@
 - [Project Structure](#project-structure)
 - [Configuration Files](#configuration-files)
 - [Module Federation Configuration](#module-federation-configuration)
-- [Remote Entry Routes](#remote-entry-routes)
 - [Application Architecture](#application-architecture)
 - [Integration with UIKit](#integration-with-uikit)
 - [Development Workflow](#development-workflow)
@@ -25,12 +30,14 @@ A Remote MFE (Micro Frontend) is an independently deployable application that is
 - **Independent Repository**: Has its own Git repository
 - **Independent Deployment**: Can be deployed separately from other MFEs
 - **Shared Dependencies**: Uses shared libraries from `@hemantajax/mfe-uikit`
-- **Route Exposure**: Exposes its routes to be consumed by the host
+- **Module Exposure**: Exposes its components/modules to be consumed by the host
 - **Isolated Development**: Can be developed and tested independently
 
-This guide shows how to create a **standalone GitHub repository** for a remote MFE using **Products** as an example.
+This guide shows how to create a **standalone GitHub repository** for a remote MFE using **React** with **manual Module Federation setup**.
 
-> **📌 What You'll Build**: This guide provides a minimal "Hello World" setup to demonstrate the remote MFE architecture. You'll get a working remote that can be consumed by the host shell. Once set up, you can add your own components, services, and business logic as needed.
+> **📌 What You'll Build**: This guide provides a minimal "Hello World" setup to demonstrate the remote MFE architecture. You'll get a working React remote that can be consumed by the host shell. Once set up, you can add your own components, services, and business logic as needed.
+
+> **⚠️ Important**: The NX generators (`nx g @nx/react:setup-mf`) may not work properly with all NX versions. This guide shows the **manual approach** that works reliably.
 
 ---
 
@@ -41,20 +48,20 @@ This guide shows how to create a **standalone GitHub repository** for a remote M
 - **Node.js**: v20+ (LTS recommended)
 - **npm**: v10+ or **yarn**: v1.22+
 - **Git**: Latest version
-- **Angular CLI**: v20.3+
+- **Nx CLI**: Latest version
 
 ### Knowledge Requirements
 
-- Angular 18+ fundamentals
+- React 18+ fundamentals
 - Module Federation concepts
 - TypeScript
-- Bootstrap 5
+- Bootstrap 5 (optional)
 
 ### Required Packages
 
 You'll need access to:
 
-- `@hemantajax/mfe-uikit` - Shared UIKit package
+- `@hemantajax/mfe-uikit` - Shared UIKit package (optional)
 
 ---
 
@@ -64,44 +71,197 @@ You'll need access to:
 
 ```bash
 # Create directory
-mkdir mfe-products
-cd mfe-products
+mkdir mfe-reactdemos
+cd mfe-reactdemos
 
 # Initialize Nx workspace (interactive prompts)
 npx create-nx-workspace@latest .
 
 # When prompted, choose:
-# - Preset: angular-monorepo
-# - Application name: products
+# - Preset: react-monorepo
+# - Application name: reactdemos
 # - Bundler: webpack
 # - Test runner: none (or your preference)
 # - Stylesheet format: scss
-# - Enable SSR: No
 # - Nx Cloud: Skip
 ```
 
-### 2. Add Module Federation
+### 2. Manual Module Federation Setup
 
-```bash
-# Add Module Federation to products
-nx g @nx/angular:setup-mf products --mfType=remote --port=4201 --host=shell
-nx g @nx/react:setup-mf reactdemos --mfType=remote --port=4201 --host=shell
+**⚠️ Note**: The automated `nx g @nx/react:setup-mf` command may not work with all NX versions. Follow the manual setup below instead.
+
+The manual setup involves:
+
+1. Creating a Module Federation configuration file
+2. Creating a bootstrap file for proper dependency sharing
+3. Creating a remote entry file to expose components
+4. Modifying the main entry point to use dynamic imports
+5. Configuring webpack to use Module Federation Plugin
+
+#### Step 2.1: Create Module Federation Config
+
+Create **`apps/reactdemos/module-federation.config.js`**:
+
+```javascript
+/**
+ * Module Federation configuration for reactdemos remote application
+ * This exposes the Module entry point to be consumed by the host application
+ */
+module.exports = {
+  name: 'reactdemos',
+
+  /**
+   * Expose the remote entry point
+   * The host application will import this as: import('reactdemos/Module')
+   */
+  exposes: {
+    './Module': './src/remote-entry.ts',
+  },
+};
 ```
 
-**Note**: The `--host=shell` flag is for reference only; it doesn't create a dependency.
+#### Step 2.2: Create Bootstrap File
 
-### 3. Install Shared UIKit
+Create **`apps/reactdemos/src/bootstrap.tsx`**:
+
+```typescript
+import { StrictMode } from 'react';
+import * as ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+
+import App from './app/app';
+
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+
+root.render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>
+);
+```
+
+#### Step 2.3: Create Remote Entry File
+
+Create **`apps/reactdemos/src/remote-entry.ts`**:
+
+```typescript
+/**
+ * Remote Entry Point for reactdemos
+ * This file exposes the main App component to be consumed by the host application
+ *
+ * Usage in host:
+ * import('reactdemos/Module').then(module => {
+ *   const App = module.default;
+ *   // Use the App component
+ * });
+ */
+
+export { default } from './app/app';
+export * from './app/app';
+```
+
+#### Step 2.4: Modify Main Entry Point
+
+Update **`apps/reactdemos/src/main.tsx`**:
+
+```typescript
+/**
+ * Main entry point for the reactdemos remote application
+ * This file dynamically imports the bootstrap file to enable Module Federation
+ * to properly share dependencies with the host application
+ */
+import('./bootstrap');
+```
+
+#### Step 2.5: Configure Webpack
+
+Update **`apps/reactdemos/webpack.config.js`**:
+
+```javascript
+const { NxAppWebpackPlugin } = require('@nx/webpack/app-plugin');
+const { NxReactWebpackPlugin } = require('@nx/react/webpack-plugin');
+const { ModuleFederationPlugin } = require('webpack').container;
+const { join } = require('path');
+
+// Load Module Federation config
+const mfConfig = require('./module-federation.config');
+
+module.exports = {
+  output: {
+    path: join(__dirname, 'dist'),
+    clean: true,
+    publicPath: 'auto',
+    uniqueName: 'reactdemos',
+  },
+  devServer: {
+    port: 4201,
+    historyApiFallback: {
+      index: '/index.html',
+      disableDotRule: true,
+      htmlAcceptHeaders: ['text/html', 'application/xhtml+xml'],
+    },
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+      'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization',
+    },
+  },
+  optimization: {
+    runtimeChunk: false,
+  },
+  plugins: [
+    new NxAppWebpackPlugin({
+      tsConfig: './tsconfig.app.json',
+      compiler: 'babel',
+      main: './src/main.tsx',
+      index: './src/index.html',
+      baseHref: '/',
+      assets: ['./src/favicon.ico', './src/assets'],
+      styles: ['./src/styles.scss'],
+      outputHashing: process.env['NODE_ENV'] === 'production' ? 'all' : 'none',
+      optimization: process.env['NODE_ENV'] === 'production',
+    }),
+    new NxReactWebpackPlugin(),
+    new ModuleFederationPlugin({
+      name: mfConfig.name,
+      filename: 'remoteEntry.js',
+      exposes: mfConfig.exposes,
+      shared: {
+        react: {
+          singleton: true,
+          requiredVersion: false,
+          eager: false,
+        },
+        'react-dom': {
+          singleton: true,
+          requiredVersion: false,
+          eager: false,
+        },
+        'react-router-dom': {
+          singleton: true,
+          requiredVersion: false,
+          eager: false,
+        },
+      },
+    }),
+  ],
+};
+```
+
+### 3. Install Dependencies
 
 ```bash
-# Install shared UIKit package
+# Install required dependencies
+npm install react react-dom react-router-dom
+
+# Install shared UIKit package (if needed)
 npm install @hemantajax/mfe-uikit@latest
 
 # If using GitHub Packages, create .npmrc first:
 echo "@hemantajax:registry=https://npm.pkg.github.com" > .npmrc
 echo "//npm.pkg.github.com/:_authToken=\${GITHUB_TOKEN}" >> .npmrc
-
-# Then install
-npm install @hemantajax/mfe-uikit@latest
 ```
 
 ### 4. Install Bootstrap (Optional)
@@ -113,51 +273,200 @@ npm install bootstrap@^5.3.8
 ### 5. Start Development
 
 ```bash
-nx serve products
+nx serve reactdemos
 ```
 
 Your remote MFE is now running at `http://localhost:4201`
+
+### Summary of Manual Setup
+
+The manual Module Federation setup involved creating/modifying these key files:
+
+**Created Files:**
+
+1. `apps/reactdemos/module-federation.config.js` - Defines what to expose
+2. `apps/reactdemos/src/bootstrap.tsx` - Actual React app bootstrap code
+3. `apps/reactdemos/src/remote-entry.ts` - Exports the App component
+
+**Modified Files:** 4. `apps/reactdemos/src/main.tsx` - Changed to dynamically import bootstrap 5. `apps/reactdemos/webpack.config.js` - Added ModuleFederationPlugin configuration 6. `tsconfig.base.json` - Added jsx support (if needed)
+
+This approach works around the non-functional `nx g @nx/react:setup-mf` generator and gives you full control over the Module Federation configuration.
+
+---
+
+## Quick Reference: File Contents
+
+Below are the exact file contents for the manual setup:
+
+### File 1: module-federation.config.js
+
+```javascript
+/**
+ * Module Federation configuration for reactdemos remote application
+ */
+module.exports = {
+  name: 'reactdemos',
+  exposes: {
+    './Module': './src/remote-entry.ts',
+  },
+};
+```
+
+### File 2: src/bootstrap.tsx
+
+```typescript
+import { StrictMode } from 'react';
+import * as ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+
+import App from './app/app';
+
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+
+root.render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>
+);
+```
+
+### File 3: src/remote-entry.ts
+
+```typescript
+/**
+ * Remote Entry Point - exposes App component to host
+ */
+export { default } from './app/app';
+export * from './app/app';
+```
+
+### File 4: src/main.tsx (Modified)
+
+```typescript
+/**
+ * Main entry - dynamically imports bootstrap for Module Federation
+ */
+import('./bootstrap');
+```
+
+### File 5: webpack.config.js (Key Parts)
+
+Add the `ModuleFederationPlugin` to your webpack config:
+
+```javascript
+const { ModuleFederationPlugin } = require('webpack').container;
+const mfConfig = require('./module-federation.config');
+
+module.exports = {
+  output: {
+    publicPath: 'auto',
+    uniqueName: 'reactdemos',
+  },
+  devServer: {
+    port: 4201,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
+  },
+  plugins: [
+    // ... other plugins
+    new ModuleFederationPlugin({
+      name: mfConfig.name,
+      filename: 'remoteEntry.js',
+      exposes: mfConfig.exposes,
+      shared: {
+        react: { singleton: true, requiredVersion: false, eager: false },
+        'react-dom': { singleton: true, requiredVersion: false, eager: false },
+        'react-router-dom': { singleton: true, requiredVersion: false, eager: false },
+      },
+    }),
+  ],
+};
+```
+
+### File 6: tsconfig.base.json (Add jsx support)
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx"
+    // ... other options
+  }
+}
+```
+
+### Key Concepts Explained
+
+**Why Bootstrap Pattern?**
+
+- Module Federation requires shared dependencies to be resolved before app initialization
+- Dynamic import (`import('./bootstrap')`) ensures dependencies load first
+- This prevents "shared module not available for eager consumption" errors
+
+**Why Remote Entry?**
+
+- Exposes your App component for the host to consume
+- Host imports as: `import('reactdemos/Module').then(m => m.default)`
+- Separates exposure logic from main app logic
+
+**Why Module Federation Config File?**
+
+- Centralizes what modules to expose
+- Makes webpack config cleaner and more maintainable
+- Can be imported by webpack.config.js
+
+**Shared Dependencies Configuration:**
+
+- `singleton: true` - Ensures only one version loads (critical for React)
+- `eager: false` - Load asynchronously (required for Module Federation)
+- `requiredVersion: false` - Don't enforce strict version matching
+
+### Verification
+
+After setup, verify your remote is working:
+
+```bash
+# Start the remote
+nx serve reactdemos
+
+# Check these URLs:
+# - http://localhost:4201 - Your app should load
+# - http://localhost:4201/remoteEntry.js - Should return JavaScript (the federation entry point)
+```
+
+If `remoteEntry.js` loads successfully, your Module Federation setup is working!
 
 ---
 
 ## Project Structure
 
 ```
-mfe-products/
+mfe-reactdemos/
 ├── apps/
-│   └── products/                        # Remote application
+│   └── reactdemos/                          # Remote application
 │       ├── src/
 │       │   ├── app/
-│       │   │   ├── pages/
-│       │   │   │   └── home/
-│       │   │   │       ├── home.component.ts
-│       │   │   │       ├── home.component.html
-│       │   │   │       └── home.component.scss
-│       │   │   ├── app.component.ts           # Root component
-│       │   │   ├── app.component.html         # Root template
-│       │   │   ├── app.component.scss         # Root styles
-│       │   │   ├── app.config.ts             # App configuration
-│       │   │   └── app.routes.ts             # Internal routes
-│       │   ├── remote-entry/
-│       │   │   ├── entry.component.ts        # Remote entry component
-│       │   │   └── entry.routes.ts           # Routes exposed to host
-│       │   ├── bootstrap.ts                  # Bootstrap logic
-│       │   ├── main.ts                       # Entry point
-│       │   ├── index.html                    # HTML template
-│       │   └── styles.scss                   # Global styles
-│       ├── public/
-│       │   └── favicon.ico
-│       ├── module-federation.config.ts       # Dev MF config
-│       ├── module-federation.config.prod.ts  # Prod MF config
-│       ├── webpack.config.ts                 # Dev webpack
-│       ├── webpack.prod.config.ts            # Prod webpack
-│       ├── project.json                      # Nx project config
-│       ├── tsconfig.json                     # TS config
-│       ├── tsconfig.app.json                # App TS config
-│       └── eslint.config.mjs                # ESLint config
+│       │   │   ├── app.tsx                  # Main App component
+│       │   │   ├── app.module.scss          # App styles
+│       │   │   ├── nx-welcome.tsx           # Sample component
+│       │   │   └── app.spec.tsx             # Tests
+│       │   ├── assets/                      # Static assets
+│       │   ├── bootstrap.tsx                # Bootstrap file (dynamic import target)
+│       │   ├── remote-entry.ts              # Remote entry (exposes App)
+│       │   ├── main.tsx                     # Entry point (imports bootstrap)
+│       │   ├── index.html                   # HTML template
+│       │   └── styles.scss                  # Global styles
+│       ├── module-federation.config.js      # Module Federation config
+│       ├── webpack.config.js                # Webpack config with MF plugin
+│       ├── project.json                     # Nx project config
+│       ├── tsconfig.json                    # TS config
+│       ├── tsconfig.app.json               # App TS config
+│       └── eslint.config.mjs               # ESLint config
 ├── node_modules/
 ├── .gitignore
-├── .npmrc                                    # npm registry config
+├── .npmrc                                   # npm registry config (optional)
 ├── package.json
 ├── tsconfig.base.json
 ├── nx.json
@@ -200,125 +509,94 @@ mfe-products/
 }
 ```
 
-### 3. apps/products/tsconfig.json
+### 3. apps/reactdemos/tsconfig.json
 
 ```json
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "jsx": "react-jsx",
+    "allowJs": false,
+    "esModuleInterop": false,
+    "allowSyntheticDefaultImports": true,
     "strict": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "target": "es2022",
-    "moduleResolution": "bundler",
-    "isolatedModules": true,
-    "emitDecoratorMetadata": false,
-    "module": "preserve"
-  },
-  "angularCompilerOptions": {
-    "enableI18nLegacyMessageIdFormat": false,
-    "strictInjectionParameters": true,
-    "strictInputAccessModifiers": true,
-    "typeCheckHostBindings": true,
-    "strictTemplates": true
+    "types": ["node"]
   },
   "files": [],
   "include": [],
   "references": [
     {
       "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
     }
   ]
 }
 ```
 
-### 4. apps/products/tsconfig.app.json
+### 4. apps/reactdemos/tsconfig.app.json
 
 ```json
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/out-tsc",
-    "types": [],
-    "target": "ES2020"
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
+  "files": ["../../node_modules/@nx/react/typings/cssmodule.d.ts", "../../node_modules/@nx/react/typings/image.d.ts"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/**/*.spec.tsx", "src/**/*.test.tsx"],
+  "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"]
 }
 ```
 
-### 5. apps/products/project.json
+### 5. apps/reactdemos/project.json
+
+The project.json is typically auto-generated by Nx. Key configuration:
 
 ```json
 {
-  "name": "products",
+  "name": "reactdemos",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
-  "prefix": "app",
-  "sourceRoot": "apps/products/src",
-  "tags": ["type:remote", "scope:products"],
+  "sourceRoot": "apps/reactdemos/src",
+  "tags": ["type:remote", "scope:reactdemos"],
   "targets": {
     "build": {
-      "executor": "@nx/angular:webpack-browser",
+      "executor": "@nx/webpack:webpack",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "outputPath": "dist/apps/products",
-        "index": "apps/products/src/index.html",
-        "main": "apps/products/src/main.ts",
-        "tsConfig": "apps/products/tsconfig.app.json",
-        "inlineStyleLanguage": "scss",
-        "assets": [
-          {
-            "glob": "**/*",
-            "input": "apps/products/public"
-          }
-        ],
-        "styles": ["apps/products/src/styles.scss"],
-        "customWebpackConfig": {
-          "path": "apps/products/webpack.config.ts"
-        }
+        "compiler": "babel",
+        "outputPath": "dist/apps/reactdemos",
+        "index": "apps/reactdemos/src/index.html",
+        "baseHref": "/",
+        "main": "apps/reactdemos/src/main.tsx",
+        "tsConfig": "apps/reactdemos/tsconfig.app.json",
+        "assets": ["apps/reactdemos/src/favicon.ico", "apps/reactdemos/src/assets"],
+        "styles": ["apps/reactdemos/src/styles.scss"],
+        "webpackConfig": "apps/reactdemos/webpack.config.js"
       },
       "configurations": {
         "production": {
-          "budgets": [
-            {
-              "type": "initial",
-              "maximumWarning": "500kb",
-              "maximumError": "1mb"
-            }
-          ],
+          "optimization": true,
           "outputHashing": "all",
-          "customWebpackConfig": {
-            "path": "apps/products/webpack.prod.config.ts"
-          }
-        },
-        "development": {
-          "buildOptimizer": false,
-          "optimization": false,
-          "vendorChunk": true,
-          "extractLicenses": false,
-          "sourceMap": true,
-          "namedChunks": true
+          "sourceMap": false,
+          "namedChunks": false,
+          "extractLicenses": true,
+          "vendorChunk": false
         }
-      },
-      "defaultConfiguration": "production"
+      }
     },
     "serve": {
-      "executor": "@nx/angular:module-federation-dev-server",
+      "executor": "@nx/webpack:dev-server",
+      "options": {
+        "buildTarget": "reactdemos:build",
+        "port": 4201
+      },
       "configurations": {
         "production": {
-          "buildTarget": "products:build:production"
-        },
-        "development": {
-          "buildTarget": "products:build:development"
+          "buildTarget": "reactdemos:build:production"
         }
-      },
-      "defaultConfiguration": "development",
-      "options": {
-        "port": 4201,
-        "publicHost": "http://localhost:4201"
       }
     },
     "lint": {
@@ -327,6 +605,12 @@ mfe-products/
   }
 }
 ```
+
+**Key points:**
+
+- Uses `@nx/webpack:webpack` executor (not Angular-specific)
+- Custom `webpack.config.js` for Module Federation
+- Port 4201 for dev server
 
 ---
 
