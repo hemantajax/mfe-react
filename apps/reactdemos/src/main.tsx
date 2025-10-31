@@ -1,16 +1,6 @@
-import { StrictMode } from 'react';
-import * as ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-
-import App from './app/app';
-
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
-root.render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </StrictMode>
-);
+/**
+ * Main entry point for the reactdemos remote application
+ * This file dynamically imports the bootstrap file to enable Module Federation
+ * to properly share dependencies with the host application
+ */
+import('./bootstrap');

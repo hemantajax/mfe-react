@@ -16,6 +16,9 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["@mfe-react/source"]
+    "customConditions": ["@mfe-react/source"],
+    "paths": {
+      "reactdemos/Module": ["apps/reactdemos/src/remote-entry.ts"]
+    }
   }
 }
