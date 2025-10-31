@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkreactdemos=self.webpackChunkreactdemos||[]).push([[125],{125:(e,s,a)=>{a.r(s),a.d(s,{App:()=>c.A,default:()=>t});var c=a(281);const t=c.A}}]);
