@@ -6,11 +6,17 @@ const { join } = require('path');
 // Load Module Federation config
 const mfConfig = require('./module-federation.config');
 
+// Get Nx configuration (similar to Angular's build configurations)
+const isProduction =
+  process.env['NX_TASK_TARGET_CONFIGURATION'] === 'production';
+
 module.exports = {
   output: {
     path: join(__dirname, 'dist'),
     clean: true,
-    publicPath: 'auto',
+    publicPath: isProduction
+      ? 'https://hemantajax.github.io/mfe-react/'
+      : 'auto',
     uniqueName: 'reactdemos',
   },
   devServer: {
@@ -36,11 +42,11 @@ module.exports = {
       compiler: 'babel',
       main: './src/main.tsx',
       index: './src/index.html',
-      baseHref: '/',
-      assets: ['./src/favicon.ico', './src/assets'],
+      baseHref: isProduction ? '/mfe-react/' : '/',
+      assets: ['./src/favicon.ico', './src/assets', './src/.nojekyll'],
       styles: ['./src/styles.scss'],
-      outputHashing: process.env['NODE_ENV'] === 'production' ? 'all' : 'none',
-      optimization: process.env['NODE_ENV'] === 'production',
+      outputHashing: isProduction ? 'all' : 'none',
+      optimization: isProduction,
       stylePreprocessorOptions: {
         includePaths: [],
         sassOptions: {
@@ -56,7 +62,7 @@ module.exports = {
     }),
     new ModuleFederationPlugin({
       name: mfConfig.name,
-      filename: 'remoteEntry.js',
+      filename: 'remoteEntry.mjs',
       exposes: mfConfig.exposes,
       shared: {
         react: {

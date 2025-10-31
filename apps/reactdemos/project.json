@@ -1,0 +1,86 @@
+{
+  "name": "@mfe-react/reactdemos",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/reactdemos/src",
+  "projectType": "application",
+  "tags": ["type:app", "platform:react"],
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "development",
+      "options": {
+        "compiler": "babel",
+        "outputPath": "apps/reactdemos/dist",
+        "index": "apps/reactdemos/src/index.html",
+        "baseHref": "/",
+        "main": "apps/reactdemos/src/main.tsx",
+        "tsConfig": "apps/reactdemos/tsconfig.app.json",
+        "assets": [
+          "apps/reactdemos/src/favicon.ico",
+          "apps/reactdemos/src/assets",
+          "apps/reactdemos/src/.nojekyll"
+        ],
+        "styles": ["apps/reactdemos/src/styles.scss"],
+        "webpackConfig": "apps/reactdemos/webpack.config.js"
+      },
+      "configurations": {
+        "development": {
+          "extractLicenses": false,
+          "optimization": false,
+          "sourceMap": true,
+          "vendorChunk": true,
+          "namedChunks": true,
+          "outputHashing": "none"
+        },
+        "production": {
+          "baseHref": "/mfe-react/",
+          "fileReplacements": [],
+          "optimization": true,
+          "outputHashing": "all",
+          "sourceMap": false,
+          "namedChunks": false,
+          "extractLicenses": true,
+          "vendorChunk": false
+        }
+      }
+    },
+    "serve": {
+      "executor": "@nx/webpack:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "reactdemos:build",
+        "port": 4201,
+        "hmr": true
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "reactdemos:build:development"
+        },
+        "production": {
+          "buildTarget": "reactdemos:build:production",
+          "hmr": false
+        }
+      }
+    },
+    "preview": {
+      "executor": "@nx/webpack:dev-server",
+      "defaultConfiguration": "production",
+      "options": {
+        "buildTarget": "reactdemos:build:production",
+        "port": 4300,
+        "hmr": false
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/reactdemos/jest.config.ts"
+      }
+    }
+  }
+}
