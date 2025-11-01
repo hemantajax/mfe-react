@@ -49,16 +49,16 @@
       "executor": "@nx/webpack:dev-server",
       "defaultConfiguration": "development",
       "options": {
-        "buildTarget": "reactdemos:build",
+        "buildTarget": "@mfe-react/reactdemos:build",
         "port": 4201,
         "hmr": true
       },
       "configurations": {
         "development": {
-          "buildTarget": "reactdemos:build:development"
+          "buildTarget": "@mfe-react/reactdemos:build:development"
         },
         "production": {
-          "buildTarget": "reactdemos:build:production",
+          "buildTarget": "@mfe-react/reactdemos:build:production",
           "hmr": false
         }
       }
@@ -67,7 +67,7 @@
       "executor": "@nx/webpack:dev-server",
       "defaultConfiguration": "production",
       "options": {
-        "buildTarget": "reactdemos:build:production",
+        "buildTarget": "@mfe-react/reactdemos:build:production",
         "port": 4300,
         "hmr": false
       }
